@@ -3,7 +3,7 @@
 export async function POST(request) {
     try {
       const { document, question } = await request.json();
-  
+      
       // Prepare messages for chat completion
       const messages = [
         {
@@ -17,16 +17,16 @@ export async function POST(request) {
       ];
   
       // Make API call to OpenRouter using native fetch
-      const response = await fetch(process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions', {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || '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'}`,
-          'HTTP-Referer': process.env.SITE_URL || (process.env.NODE_ENV === 'production' ? 'https://llmapi-flax.vercel.app/' : 'http://localhost:3000'),
+          'HTTP-Referer': process.env.SITE_URL || 'http://localhost:3000',
           'X-Title': process.env.SITE_NAME || 'Document Analysis App'
         },
         body: JSON.stringify({
-          model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3-haiku',
+         model: 'anthropic/claude-3-haiku',
           messages: messages,
           max_tokens: 300,
           temperature: 0.2,
@@ -41,10 +41,7 @@ export async function POST(request) {
   
       const data = await response.json();
       const resultText = data.choices?.[0]?.message?.content || 'No response from API';
-  
-      console.log('Usage:', data.usage);
-      console.log('Model used:', data.model);
-  
+      
       // Return the cleaned result
       return Response.json({ result: resultText.trim() });
     } catch (error) {

@@ -123,21 +123,17 @@ If you have any questions or would like to discuss your project, please send us 
   const analyzeDocument = async () => {
     if (!question.trim()) return;
 
-    // Clear previous result before starting new analysis
     setResult("");
 
-    // Cancel any in-flight request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
-    // Create new abort controller
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
 
     const normalizedQuestion = question.trim().toLowerCase();
 
-    // Check if the question is the same as the last analyzed one
     if (normalizedQuestion === lastAnalyzedQuestion.toLowerCase() && resultCache.current.has(normalizedQuestion)) {
       setResult(resultCache.current.get(normalizedQuestion));
       setIsLoading(false);
@@ -145,8 +141,6 @@ If you have any questions or would like to discuss your project, please send us 
     }
 
     setIsLoading(true);
-
-    // Display loading state directly on the page
     setResult("Analyzing document...");
 
     try {
@@ -163,7 +157,13 @@ If you have any questions or would like to discuss your project, please send us 
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get response from ArliAI");
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Client-side API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+        });
+        throw new Error(`Failed to get response from API: ${JSON.stringify(errorData.error || response.statusText)}`);
       }
 
       const data = await response.json();
@@ -171,19 +171,14 @@ If you have any questions or would like to discuss your project, please send us 
         throw new Error(data.error);
       }
 
-      // Format the result as rich HTML
       const resultText = formatResultAsHTML(
         data.result || "No result was returned. Please try asking a different question."
       );
       setResult(resultText);
 
-      // Cache the result for future use
       resultCache.current.set(normalizedQuestion, resultText);
-
-      // Update the last analyzed question
       setLastAnalyzedQuestion(question.trim());
     } catch (error) {
-      // Only show error if it's not an abort error
       if (error.name !== "AbortError") {
         setResult(`
           <div class="text-red-600 flex items-center gap-2">
@@ -199,48 +194,37 @@ If you have any questions or would like to discuss your project, please send us 
     }
   };
 
-  // Function to format the result as rich HTML
   const formatResultAsHTML = (text) => {
+    // Unchanged formatResultAsHTML function
     if (!text) return '';
 
-    // Replace custom bullet points with spaces for processing
     text = text.replace(/[-*•]/g, '');
-
-    // Split the text into lines for processing
     const lines = text.split('\n');
     let inList = false;
     let formattedText = '';
 
     lines.forEach((line, index) => {
       line = line.trim();
-
-      // Skip empty lines, but close any open list
       if (line === '') {
         if (inList) {
           formattedText += '</ul>';
           inList = false;
         }
-        return; // Avoid adding extra <br> for empty lines
+        return;
       }
-
-      // Handle numbered lists (e.g., "1. Item")
       if (/^\d+\.\s/.test(line)) {
         if (inList) {
           formattedText += '</ul>';
           inList = false;
         }
         formattedText += `<div class="flex items-start mb-3"><span class="font-bold text-blue-600 mr-2">${line.match(/^\d+\./)[0]}</span><span class="flex-1">${line.replace(/^\d+\.\s/, '')}</span></div>`;
-      }
-      // Handle headers (lines ending with a colon)
-      else if (/^(.*?):$/.test(line)) {
+      } else if (/^(.*?):$/.test(line)) {
         if (inList) {
           formattedText += '</ul>';
           inList = false;
         }
         formattedText += `<h3 class="text-xl font-bold text-blue-700 mt-4 mb-2">${line.replace(/:$/, '')}</h3>`;
-      }
-      // Handle list items (non-header, non-numbered lines)
-      else {
+      } else {
         const isListItem = !/^(.*?):$/.test(line) && !/^\d+\.\s/.test(line);
         if (isListItem) {
           if (!inList) {
@@ -253,7 +237,6 @@ If you have any questions or would like to discuss your project, please send us 
             formattedText += '</ul>';
             inList = false;
           }
-          // Only add as a paragraph if it's not already processed as a header or list item
           if (!formattedText.endsWith(`<h3 class="text-xl font-bold text-blue-700 mt-4 mb-2">${line}</h3>`)) {
             formattedText += `<p class="mb-4 leading-relaxed text-gray-800">${line}</p>`;
           }
@@ -261,10 +244,8 @@ If you have any questions or would like to discuss your project, please send us 
       }
     });
 
-    // Close any open list at the end
     if (inList) formattedText += '</ul>';
 
-    // Highlight key terms without affecting the entire bullet point
     const keyTerms = [
       'ExponentX', 'IT Consulting', 'Cloud Solutions', 'Automation',
       'AI', 'Enterprise-Ready', 'Digital transformation', 'CRM', 'ERP'
@@ -275,17 +256,13 @@ If you have any questions or would like to discuss your project, please send us 
       formattedText = formattedText.replace(regex, `<span class="font-semibold text-blue-600">${term}</span>`);
     });
 
-    // Ensure all <li> elements have consistent text color
     formattedText = formattedText.replace(/<li class="text-gray-800">(.*?)<\/li>/g, (match, content) => {
-      // Split the content into parts to isolate key terms and apply consistent styling to non-highlighted text
       let updatedContent = content;
       keyTerms.forEach(term => {
         const regex = new RegExp(`\\b${term}\\b`, 'gi');
-        updatedContent = updatedContent.replace(regex, `{{TEMP_${term}_TEMP}}`); // Temporarily replace key terms
+        updatedContent = updatedContent.replace(regex, `{{TEMP_${term}_TEMP}}`);
       });
-      // Wrap non-highlighted text in a span with text-gray-800
       updatedContent = `<span class="text-gray-800">${updatedContent}</span>`;
-      // Restore key terms with their highlighting
       keyTerms.forEach(term => {
         updatedContent = updatedContent.replace(new RegExp(`{{TEMP_${term}_TEMP}}`, 'g'), `<span class="font-semibold text-blue-600">${term}</span>`);
       });
@@ -295,7 +272,6 @@ If you have any questions or would like to discuss your project, please send us 
     return formattedText;
   };
 
-  // Updated sample questions for ExponentX Technologies
   const sampleQuestions = [
     "What are the key services offered by ExponentX?",
     "Where is ExponentX located?",
@@ -303,17 +279,15 @@ If you have any questions or would like to discuss your project, please send us 
     "What is their customer commitment?",
   ];
 
-  // Function to set a sample question and clear previous result
   const setExampleQuestion = (q) => {
     setQuestion(q);
-    setResult(""); // Clear previous result
+    setResult("");
     setTimeout(() => analyzeDocument(), 0);
   };
 
-  // Clear result when question changes
   const handleQuestionChange = (e) => {
     setQuestion(e.target.value);
-    setResult(""); // Clear previous result
+    setResult("");
   };
 
   if (!isClient) {
@@ -365,7 +339,6 @@ If you have any questions or would like to discuss your project, please send us 
           </div>
         </div>
 
-        {/* Sample Questions */}
         <div className="mt-8 mb-8">
           <h3 className="flex items-center text-md font-medium text-gray-700 mb-3">
             <svg
@@ -391,7 +364,6 @@ If you have any questions or would like to discuss your project, please send us 
           </div>
         </div>
 
-        {/* Query Container */}
         <div className="mb-6">
           <div className="flex items-center gap-2">
             <input
@@ -427,7 +399,6 @@ If you have any questions or would like to discuss your project, please send us 
           </div>
         </div>
 
-        {/* Result Display */}
         {result && (
           <div className="mt-8 bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200">
             <h3 className="text-xl font-semibold text-gray-800 mb-4">Answer:</h3>

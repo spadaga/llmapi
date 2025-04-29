@@ -16,6 +16,14 @@ export async function POST(request) {
         }
       ];
   
+      console.log('Request Payload:', {
+        model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3-haiku',
+        messages,
+        max_tokens: 300,
+        temperature: 0.2,
+        top_p: 0.8
+      });
+  
       // Make API call to OpenRouter using native fetch
       const response = await fetch(process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -36,7 +44,8 @@ export async function POST(request) {
   
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(`API error: ${errorData.error || response.statusText}`);
+        console.error('API Response Error:', errorData);
+        throw new Error(`API error: ${JSON.stringify(errorData.error) || response.statusText}`);
       }
   
       const data = await response.json();
